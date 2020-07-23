@@ -17,11 +17,9 @@
 import { scanner } from 'etcher-sdk';
 import * as React from 'react';
 import { Flex } from 'rendition/dist_esm5/components/Flex';
-import { TargetSelectorButton } from './target-selector-button';
-import {
-	DriveSelector,
-	DriveSelectorProps,
-} from '../drive-selector/drive-selector';
+import Txt from 'rendition/dist_esm5/components/Txt';
+
+import * as analytics from '../../modules/analytics';
 import {
 	isDriveSelected,
 	getImage,
@@ -31,8 +29,14 @@ import {
 } from '../../models/selection-state';
 import * as settings from '../../models/settings';
 import { observe } from '../../models/store';
-import * as analytics from '../../modules/analytics';
+import {
+	DriveSelector,
+	DriveSelectorProps,
+} from '../drive-selector/drive-selector';
+import { TargetSelectorButton } from './target-selector-button';
+
 import DriveSvg from '../../../assets/drive.svg';
+import { warning } from '../../../../shared/messages';
 
 export const getDriveListLabel = () => {
 	return getSelectedDrives()
@@ -59,6 +63,9 @@ export const TargetSelectorModal = (
 	<DriveSelector
 		titleLabel="Select target"
 		emptyListLabel="Plug a target drive"
+		showWarnings={true}
+		selectedList={getSelectedDrives()}
+		updateSelectedList={getSelectedDrives}
 		{...props}
 	/>
 );
@@ -105,7 +112,7 @@ export const TargetSelector = ({
 }: TargetSelectorProps) => {
 	// TODO: inject these from redux-connector
 	const [
-		{ showDrivesButton, driveListLabel, targets, image },
+		{ showDrivesButton, driveListLabel, targets },
 		setStateSlice,
 	] = React.useState(getDriveSelectionStateSlice());
 	const [showTargetSelectorModal, setShowTargetSelectorModal] = React.useState(
@@ -118,6 +125,8 @@ export const TargetSelector = ({
 		});
 	}, []);
 
+	const hasSystemDrives =
+		targets.filter((target) => target.isSystem).length > 0;
 	return (
 		<Flex flexDirection="column" alignItems="center">
 			<DriveSvg
@@ -141,8 +150,19 @@ export const TargetSelector = ({
 				}}
 				flashing={flashing}
 				targets={targets}
-				image={image}
 			/>
+
+			{hasSystemDrives ? (
+				<Txt
+					color="#fca321"
+					style={{
+						position: 'absolute',
+						bottom: '25px',
+					}}
+				>
+					Warning: {warning.systemDrive()}
+				</Txt>
+			) : null}
 
 			{showTargetSelectorModal && (
 				<TargetSelectorModal
