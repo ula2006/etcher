@@ -15,10 +15,11 @@
  */
 
 import CircleSvg from '@fortawesome/fontawesome-free/svgs/solid/circle.svg';
+import ExclamationTriangleSvg from '@fortawesome/fontawesome-free/svgs/solid/exclamation-triangle.svg';
 import * as _ from 'lodash';
 import * as path from 'path';
 import * as React from 'react';
-import { Flex, Modal, Txt } from 'rendition';
+import { Badge, Flex, Modal as SmallModal, Txt } from 'rendition';
 
 import * as constraints from '../../../../shared/drive-constraints';
 import * as messages from '../../../../shared/messages';
@@ -34,28 +35,13 @@ import {
 	selectAllTargets,
 	TargetSelectorModal,
 } from '../../components/target-selector/target-selector';
+import { Modal, ScrollableFlex } from '../../styled-components';
+import { middleEllipsis } from '../../utils/middle-ellipsis';
 
 import FlashSvg from '../../../assets/flash.svg';
 
 const COMPLETED_PERCENTAGE = 100;
 const SPEED_PRECISION = 2;
-
-const getWarningMessages = (drives: any, image: any) => {
-	const warningMessages = [];
-	for (const drive of drives) {
-		if (constraints.isDriveSizeLarge(drive)) {
-			warningMessages.push(messages.warning.largeDriveSize(drive));
-		} else if (!constraints.isDriveSizeRecommended(drive, image)) {
-			warningMessages.push(
-				messages.warning.unrecommendedDriveSize(image, drive),
-			);
-		}
-
-		// TODO(Shou): we should consider adding the same warning dialog for system drives and remove unsafe mode
-	}
-
-	return warningMessages;
-};
 
 const getErrorMessageFromCode = (errorCode: string) => {
 	// TODO: All these error codes to messages translations
@@ -81,8 +67,8 @@ async function flashImageToDrive(
 ): Promise<string> {
 	const devices = selection.getSelectedDevices();
 	const image: any = selection.getImage();
-	const drives = _.filter(availableDrives.getDrives(), (drive: any) => {
-		return _.includes(devices, drive.device);
+	const drives = availableDrives.getDrives().filter((drive: any) => {
+		return devices.includes(drive.device);
 	});
 
 	if (drives.length === 0 || isFlashing) {
@@ -116,7 +102,9 @@ async function flashImageToDrive(
 			messages.error.flashFailure(path.basename(image.path), drives),
 			iconPath,
 		);
-		let errorMessage = getErrorMessageFromCode(error.code);
+		// let errorMessage = getErrorMessageFromCode(error.code);
+		console.log(getErrorMessageFromCode(error.code));
+		let errorMessage = JSON.stringify(error);
 		if (!errorMessage) {
 			error.image = basename;
 			analytics.logException(error);
@@ -132,7 +120,7 @@ async function flashImageToDrive(
 }
 
 const formatSeconds = (totalSeconds: number) => {
-	if (!totalSeconds && !_.isNumber(totalSeconds)) {
+	if (typeof totalSeconds !== 'number') {
 		return '';
 	}
 	const minutes = Math.floor(totalSeconds / 60);
@@ -157,7 +145,7 @@ interface FlashStepProps {
 }
 
 interface FlashStepState {
-	warningMessages: string[];
+	warningMessage: boolean;
 	errorMessage: string;
 	showDriveSelectorModal: boolean;
 }
@@ -169,14 +157,14 @@ export class FlashStep extends React.PureComponent<
 	constructor(props: FlashStepProps) {
 		super(props);
 		this.state = {
-			warningMessages: [],
+			warningMessage: false,
 			errorMessage: '',
 			showDriveSelectorModal: false,
 		};
 	}
 
 	private async handleWarningResponse(shouldContinue: boolean) {
-		this.setState({ warningMessages: [] });
+		this.setState({ warningMessage: false });
 		if (!shouldContinue) {
 			this.setState({ showDriveSelectorModal: true });
 			return;
@@ -199,28 +187,26 @@ export class FlashStep extends React.PureComponent<
 		}
 	}
 
-	private hasListWarnings(drives: any[], image: any) {
+	private hasListWarnings(drives: any[]) {
 		if (drives.length === 0 || flashState.isFlashing()) {
 			return;
 		}
-		return constraints.hasListDriveImageCompatibilityStatus(drives, image);
+		return drives.filter((drive) => drive.isSystem).length > 0;
 	}
 
 	private async tryFlash() {
 		const devices = selection.getSelectedDevices();
-		const image = selection.getImage();
-		const drives = _.filter(
-			availableDrives.getDrives(),
-			(drive: { device: string }) => {
-				return _.includes(devices, drive.device);
-			},
-		);
+		const drives = availableDrives
+			.getDrives()
+			.filter((drive: { device: string }) => {
+				return devices.includes(drive.device);
+			});
 		if (drives.length === 0 || this.props.isFlashing) {
 			return;
 		}
-		const hasDangerStatus = this.hasListWarnings(drives, image);
+		const hasDangerStatus = drives.filter((drive) => drive.isSystem).length > 0;
 		if (hasDangerStatus) {
-			this.setState({ warningMessages: getWarningMessages(drives, image) });
+			this.setState({ warningMessage: true });
 			return;
 		}
 		this.setState({
@@ -254,13 +240,8 @@ export class FlashStep extends React.PureComponent<
 						position={this.props.position}
 						disabled={this.props.shouldFlashStepBeDisabled}
 						cancel={imageWriter.cancel}
-						warning={this.hasListWarnings(
-							selection.getSelectedDrives(),
-							selection.getImage(),
-						)}
-						callback={() => {
-							this.tryFlash();
-						}}
+						warning={this.hasListWarnings(selection.getSelectedDrives())}
+						callback={() => this.tryFlash()}
 					/>
 
 					{!_.isNil(this.props.speed) &&
@@ -271,9 +252,7 @@ export class FlashStep extends React.PureComponent<
 								color="#7e8085"
 								width="100%"
 							>
-								{!_.isNil(this.props.speed) && (
-									<Txt>{this.props.speed.toFixed(SPEED_PRECISION)} MB/s</Txt>
-								)}
+								<Txt>{this.props.speed.toFixed(SPEED_PRECISION)} MB/s</Txt>
 								{!_.isNil(this.props.eta) && (
 									<Txt>ETA: {formatSeconds(this.props.eta)}</Txt>
 								)}
@@ -289,28 +268,70 @@ export class FlashStep extends React.PureComponent<
 					)}
 				</Flex>
 
-				{this.state.warningMessages.length > 0 && (
+				{this.state.warningMessage && (
 					<Modal
-						width={400}
-						titleElement={'Attention'}
-						cancel={() => this.handleWarningResponse(false)}
+						reverseFooterButtons={true}
 						done={() => this.handleWarningResponse(true)}
+						cancel={() => this.handleWarningResponse(false)}
 						cancelButtonProps={{
-							children: 'Change',
+							primary: false,
+							warning: true,
 						}}
-						action={'Continue'}
-						primaryButtonProps={{ primary: false, warning: true }}
+						action={"Yes, I'm sure"}
+						primaryButtonProps={{
+							primary: false,
+							outline: true,
+						}}
 					>
-						{_.map(this.state.warningMessages, (message, key) => (
-							<Txt key={key} whitespace="pre-line" mt={2}>
-								{message}
+						<Flex
+							flexDirection="column"
+							alignItems="center"
+							justifyContent="center"
+							width="100%"
+							height="100%"
+						>
+							<Flex flexDirection="column">
+								<ExclamationTriangleSvg height="2em" fill="#fca321" />
+								<Txt fontSize="24px" color="#fca321">
+									WARNING!
+								</Txt>
+							</Flex>
+							<Txt fontSize="24px">This will erase your computer's drive</Txt>
+							<ScrollableFlex
+								flexDirection="column"
+								backgroundColor="#fff5e6"
+								m="2em 0"
+								p="1em 2em"
+								width="420px"
+								maxHeight="100px"
+							>
+								{(selection.getSelectedDrives() as constraints.DrivelistDrive[])
+									.filter((drive) => drive.isSystem)
+									.map((drive, i, array) => (
+										<>
+											<Flex
+												justifyContent="space-between"
+												alignItems="baseline"
+											>
+												Selected target:{' '}
+												<strong>{middleEllipsis(drive.description, 18)}</strong>{' '}
+												<Badge shade={5}>System drive</Badge>
+											</Flex>
+											{i !== array.length - 1 ? (
+												<hr style={{ width: '100%' }} />
+											) : null}
+										</>
+									))}
+							</ScrollableFlex>
+							<Txt style={{ fontWeight: 600 }}>
+								Are you sure you want to select your system drive as target?
 							</Txt>
-						))}
+						</Flex>
 					</Modal>
 				)}
 
 				{this.state.errorMessage && (
-					<Modal
+					<SmallModal
 						width={400}
 						titleElement={'Attention'}
 						cancel={() => this.handleFlashErrorResponse(false)}
@@ -318,11 +339,11 @@ export class FlashStep extends React.PureComponent<
 						action={'Retry'}
 					>
 						<Txt>
-							{_.map(this.state.errorMessage.split('\n'), (message, key) => (
+							{this.state.errorMessage.split('\n').map((message, key) => (
 								<p key={key}>{message}</p>
 							))}
 						</Txt>
-					</Modal>
+					</SmallModal>
 				)}
 				{this.state.showDriveSelectorModal && (
 					<TargetSelectorModal

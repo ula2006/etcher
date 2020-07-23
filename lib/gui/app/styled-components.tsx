@@ -16,6 +16,7 @@
 
 import * as React from 'react';
 import {
+	Alert as AlertBase,
 	Flex,
 	FlexProps,
 	Button,
@@ -69,6 +70,7 @@ export const StepButton = styled((props: ButtonProps) => (
 	<BaseButton {...props}></BaseButton>
 ))`
 	color: #ffffff;
+	font-size: 14px;
 `;
 
 export const ChangeButton = styled(Button)`
@@ -95,7 +97,7 @@ export const StepNameButton = styled(BaseButton)`
 	justify-content: center;
 	align-items: center;
 	width: 100%;
-	font-weight: bold;
+	font-weight: normal;
 	color: ${colors.dark.foreground};
 
 	&:enabled {
@@ -142,7 +144,7 @@ export const Modal = styled(({ style, ...props }) => {
 		>
 			<ModalBase
 				position="top"
-				width="96vw"
+				width="97vw"
 				cancelButtonProps={{
 					style: {
 						marginRight: '20px',
@@ -150,7 +152,7 @@ export const Modal = styled(({ style, ...props }) => {
 					},
 				}}
 				style={{
-					height: '86.5vh',
+					height: '87.5vh',
 					...style,
 				}}
 				{...props}
@@ -175,6 +177,8 @@ export const Modal = styled(({ style, ...props }) => {
 		}
 
 		> div:last-child {
+			flex-direction: ${(props) =>
+				props.reverseFooterButtons ? 'row-reverse' : 'row'};
 			border-radius: 0 0 7px 7px;
 			height: 80px;
 			background-color: #fff;
@@ -198,5 +202,30 @@ export const ScrollableFlex = styled(Flex)`
 	> div > div {
 		/* This is required for the sticky table header in TargetsTable */
 		overflow-x: visible;
+	}
+`;
+
+export const Alert = styled((props) => (
+	<AlertBase warning emphasized {...props}></AlertBase>
+))`
+	position: fixed;
+	top: -40px;
+	left: 50%;
+	transform: translate(-50%, 0px);
+	height: 30px;
+	min-width: 50%;
+	padding: 0px;
+	justify-content: center;
+	align-items: center;
+	font-size: 14px;
+	background-color: #fca321;
+	text-align: center;
+
+	* {
+		color: #ffffff;
+	}
+
+	> div:first-child {
+		display: none;
 	}
 `;
