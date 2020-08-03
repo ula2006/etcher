@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-import { Drive as DrivelistDrive } from 'drivelist';
+import { Drive } from 'drivelist';
 import * as _ from 'lodash';
 import * as pathIsInside from 'path-is-inside';
-import * as prettyBytes from 'pretty-bytes';
 
 import * as messages from './messages';
+import { SourceMetadata } from '../gui/app/components/source-selector/source-selector';
 
 /**
  * @summary The default unknown size for things such as images and drives
  */
 const UNKNOWN_SIZE = 0;
+
+export type DrivelistDrive = Drive & {
+	disabled: boolean;
+	displayName: string;
+};
 
 /**
  * @summary Check if a drive is locked
@@ -33,22 +38,31 @@ const UNKNOWN_SIZE = 0;
  * This usually points out a locked SD Card.
  */
 export function isDriveLocked(drive: DrivelistDrive): boolean {
-	return Boolean(_.get(drive, ['isReadOnly'], false));
+	return Boolean(drive?.isReadOnly);
 }
 
 /**
  * @summary Check if a drive is a system drive
  */
 export function isSystemDrive(drive: DrivelistDrive): boolean {
-	return Boolean(_.get(drive, ['isSystem'], false));
+	return Boolean(drive?.isSystem);
 }
 
 export interface Image {
-	path?: string;
+	path: string;
 	isSizeEstimated?: boolean;
 	compressedSize?: number;
 	recommendedDriveSize?: number;
 	size?: number;
+}
+
+function sourceIsInsideDrive(source: string, drive: DrivelistDrive) {
+	for (const mountpoint of drive.mountpoints || []) {
+		if (pathIsInside(source, mountpoint.path)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
@@ -60,11 +74,16 @@ export interface Image {
  */
 export function isSourceDrive(
 	drive: DrivelistDrive,
-	image: Image = {},
+	selection?: SourceMetadata,
 ): boolean {
-	for (const mountpoint of drive.mountpoints || []) {
-		if (image.path !== undefined && pathIsInside(image.path, mountpoint.path)) {
-			return true;
+	if (selection) {
+		if (selection.drive) {
+			const sourcePath = selection.drive.devicePath || selection.drive.device;
+			const drivePath = drive.devicePath || drive.device;
+			return pathIsInside(sourcePath, drivePath);
+		}
+		if (selection.path) {
+			return sourceIsInsideDrive(selection.path, drive);
 		}
 	}
 	return false;
@@ -77,14 +96,14 @@ export function isDriveLargeEnough(
 	drive: DrivelistDrive | undefined,
 	image: Image,
 ): boolean {
-	const driveSize = _.get(drive, 'size') || UNKNOWN_SIZE;
+	const driveSize = drive?.size || UNKNOWN_SIZE;
 
-	if (_.get(image, ['isSizeEstimated'])) {
+	if (image?.isSizeEstimated) {
 		// If the drive size is smaller than the original image size, and
 		// the final image size is just an estimation, then we stop right
 		// here, based on the assumption that the final size will never
 		// be less than the original size.
-		if (driveSize < _.get(image, ['compressedSize'], UNKNOWN_SIZE)) {
+		if (driveSize < (image?.compressedSize || UNKNOWN_SIZE)) {
 			return false;
 		}
 
@@ -95,14 +114,14 @@ export function isDriveLargeEnough(
 		return true;
 	}
 
-	return driveSize >= _.get(image, ['size'], UNKNOWN_SIZE);
+	return driveSize >= (image?.size || UNKNOWN_SIZE);
 }
 
 /**
  * @summary Check if a drive is disabled (i.e. not ready for selection)
  */
 export function isDriveDisabled(drive: DrivelistDrive): boolean {
-	return _.get(drive, ['disabled'], false);
+	return drive?.disabled || false;
 }
 
 /**
@@ -112,7 +131,7 @@ export function isDriveValid(drive: DrivelistDrive, image: Image): boolean {
 	return (
 		!isDriveLocked(drive) &&
 		isDriveLargeEnough(drive, image) &&
-		!isSourceDrive(drive, image) &&
+		!isSourceDrive(drive, image as SourceMetadata) &&
 		!isDriveDisabled(drive)
 	);
 }
@@ -127,8 +146,8 @@ export function isDriveSizeRecommended(
 	drive: DrivelistDrive | undefined,
 	image: Image,
 ): boolean {
-	const driveSize = _.get(drive, 'size') || UNKNOWN_SIZE;
-	return driveSize >= _.get(image, ['recommendedDriveSize'], UNKNOWN_SIZE);
+	const driveSize = drive?.size || UNKNOWN_SIZE;
+	return driveSize >= (image?.recommendedDriveSize || UNKNOWN_SIZE);
 }
 
 /**
@@ -140,7 +159,7 @@ export const LARGE_DRIVE_SIZE = 64e9;
  * @summary Check whether a drive's size is 'large'
  */
 export function isDriveSizeLarge(drive?: DrivelistDrive): boolean {
-	const driveSize = _.get(drive, 'size') || UNKNOWN_SIZE;
+	const driveSize = drive?.size || UNKNOWN_SIZE;
 	return driveSize > LARGE_DRIVE_SIZE;
 }
 
@@ -155,6 +174,33 @@ export const COMPATIBILITY_STATUS_TYPES = {
 	ERROR: 2,
 };
 
+export const statuses = {
+	locked: {
+		type: COMPATIBILITY_STATUS_TYPES.ERROR,
+		message: messages.compatibility.locked(),
+	},
+	system: {
+		type: COMPATIBILITY_STATUS_TYPES.WARNING,
+		message: messages.compatibility.system(),
+	},
+	containsImage: {
+		type: COMPATIBILITY_STATUS_TYPES.ERROR,
+		message: messages.compatibility.containsImage(),
+	},
+	large: {
+		type: COMPATIBILITY_STATUS_TYPES.WARNING,
+		message: messages.compatibility.largeDrive(),
+	},
+	small: {
+		type: COMPATIBILITY_STATUS_TYPES.ERROR,
+		message: messages.compatibility.tooSmall(),
+	},
+	sizeNotRecommended: {
+		type: COMPATIBILITY_STATUS_TYPES.WARNING,
+		message: messages.compatibility.sizeNotRecommended(),
+	},
+};
+
 /**
  * @summary Get drive/image compatibility in an object
  *
@@ -167,7 +213,7 @@ export const COMPATIBILITY_STATUS_TYPES = {
  */
 export function getDriveImageCompatibilityStatuses(
 	drive: DrivelistDrive,
-	image: Image = {},
+	image: Image,
 ) {
 	const statusList = [];
 
@@ -182,41 +228,21 @@ export function getDriveImageCompatibilityStatuses(
 		!_.isNil(drive.size) &&
 		!isDriveLargeEnough(drive, image)
 	) {
-		const imageSize = (image.isSizeEstimated
-			? image.compressedSize
-			: image.size) as number;
-		const relativeBytes = imageSize - drive.size;
-		statusList.push({
-			type: COMPATIBILITY_STATUS_TYPES.ERROR,
-			message: messages.compatibility.tooSmall(prettyBytes(relativeBytes)),
-		});
+		statusList.push(statuses.small);
 	} else {
-		if (isSourceDrive(drive, image)) {
-			statusList.push({
-				type: COMPATIBILITY_STATUS_TYPES.ERROR,
-				message: messages.compatibility.containsImage(),
-			});
-		}
-
+		// Avoid showing "large drive" with "system drive" status
 		if (isSystemDrive(drive)) {
-			statusList.push({
-				type: COMPATIBILITY_STATUS_TYPES.WARNING,
-				message: messages.compatibility.system(),
-			});
+			statusList.push(statuses.system);
+		} else if (isDriveSizeLarge(drive)) {
+			statusList.push(statuses.large);
 		}
 
-		if (isDriveSizeLarge(drive)) {
-			statusList.push({
-				type: COMPATIBILITY_STATUS_TYPES.WARNING,
-				message: messages.compatibility.largeDrive(),
-			});
+		if (isSourceDrive(drive, image as SourceMetadata)) {
+			statusList.push(statuses.containsImage);
 		}
 
 		if (!_.isNil(drive) && !isDriveSizeRecommended(drive, image)) {
-			statusList.push({
-				type: COMPATIBILITY_STATUS_TYPES.WARNING,
-				message: messages.compatibility.sizeNotRecommended(),
-			});
+			statusList.push(statuses.sizeNotRecommended);
 		}
 	}
 
@@ -234,7 +260,8 @@ export function getListDriveImageCompatibilityStatuses(
 	drives: DrivelistDrive[],
 	image: Image,
 ) {
-	return _.flatMap(drives, (drive) => {
+	// @ts-ignore
+	return drives.flatMap((drive) => {
 		return getDriveImageCompatibilityStatuses(drive, image);
 	});
 }
@@ -252,31 +279,26 @@ export function hasDriveImageCompatibilityStatus(
 	return Boolean(getDriveImageCompatibilityStatuses(drive, image).length);
 }
 
-/**
- * @summary Does any drive/image pair have at least one compatibility status?
- * @function
- * @public
- *
- * @description
- * Given an image and a drive, return whether they have a connected compatibility status object.
- *
- * @param {Object[]} drives - drives
- * @param {Object} image - image
- * @returns {Boolean}
- *
- * @example
- * if (constraints.hasDriveImageCompatibilityStatus(drive, image)) {
- *   console.log('This drive-image pair has a compatibility status message!')
- * }
- */
-export function hasListDriveImageCompatibilityStatus(
-	drives: DrivelistDrive[],
-	image: Image,
-) {
-	return Boolean(getListDriveImageCompatibilityStatuses(drives, image).length);
-}
-
-export interface TargetStatus {
+export interface DriveStatus {
 	message: string;
 	type: number;
+}
+
+export function getDriveStatuses(drive: DrivelistDrive) {
+	const statusList: DriveStatus[] = [];
+	if (isDriveLocked(drive)) {
+		statusList.push(statuses.locked);
+	}
+	if (isSystemDrive(drive)) {
+		statusList.push(statuses.system);
+	} else if (isDriveSizeLarge(drive)) {
+		statusList.push(statuses.large);
+	}
+	return statusList;
+}
+export function getDriveListStatuses(drives: DrivelistDrive[]) {
+	const statusList: DriveStatus[] = [];
+	return drives.reduce((acc, drive) => {
+		return acc.concat(getDriveStatuses(drive));
+	}, statusList);
 }

@@ -16,7 +16,7 @@
 
 import ExclamationTriangleSvg from '@fortawesome/fontawesome-free/svgs/solid/exclamation-triangle.svg';
 import ChevronDownSvg from '@fortawesome/fontawesome-free/svgs/solid/chevron-down.svg';
-import { scanner, sourceDestination } from 'etcher-sdk';
+import sourceDestination from 'etcher-sdk/build/source-destination/';
 import * as React from 'react';
 import { Flex } from 'rendition/dist_esm5/components/Flex';
 import { ModalProps } from 'rendition/dist_esm5/components/Modal';
@@ -28,25 +28,22 @@ import styled from 'styled-components';
 
 import {
 	getDriveImageCompatibilityStatuses,
-	hasListDriveImageCompatibilityStatus,
 	isDriveValid,
-	TargetStatus,
+	DriveStatus,
 	Image,
+	DrivelistDrive,
+	isDriveSizeLarge,
 } from '../../../../shared/drive-constraints';
-import { compatibility } from '../../../../shared/messages';
+import { compatibility, warning } from '../../../../shared/messages';
 import { bytesToClosestUnit } from '../../../../shared/units';
 import { getDrives, hasAvailableDrives } from '../../models/available-drives';
-import {
-	getImage,
-	getSelectedDrives,
-	isDriveSelected,
-} from '../../models/selection-state';
+import { getImage, isDriveSelected } from '../../models/selection-state';
 import { store } from '../../models/store';
 import { logEvent, logException } from '../../modules/analytics';
 import { open as openExternal } from '../../os/open-external/services/open-external';
-import { Modal, ScrollableFlex } from '../../styled-components';
+import { Alert, Modal, ScrollableFlex } from '../../styled-components';
 
-import TargetSVGIcon from '../../../assets/tgt.svg';
+import DriveSVGIcon from '../../../assets/tgt.svg';
 
 interface UsbbootDrive extends sourceDestination.UsbbootDrive {
 	progress: number;
@@ -61,46 +58,86 @@ interface DriverlessDrive {
 	linkCTA: string;
 }
 
-type Target = scanner.adapters.DrivelistDrive | DriverlessDrive | UsbbootDrive;
+type Drive = DrivelistDrive | DriverlessDrive | UsbbootDrive;
 
-function isUsbbootDrive(drive: Target): drive is UsbbootDrive {
+function isUsbbootDrive(drive: Drive): drive is UsbbootDrive {
 	return (drive as UsbbootDrive).progress !== undefined;
 }
 
-function isDriverlessDrive(drive: Target): drive is DriverlessDrive {
+function isDriverlessDrive(drive: Drive): drive is DriverlessDrive {
 	return (drive as DriverlessDrive).link !== undefined;
 }
 
-function isDrivelistDrive(
-	drive: Target,
-): drive is scanner.adapters.DrivelistDrive {
-	return typeof (drive as scanner.adapters.DrivelistDrive).size === 'number';
+function isDrivelistDrive(drive: Drive): drive is DrivelistDrive {
+	return typeof (drive as DrivelistDrive).size === 'number';
 }
 
-const TargetsTable = styled(({ refFn, ...props }) => {
-	return (
-		<div>
-			<Table<Target> ref={refFn} {...props} />
-		</div>
-	);
-})`
-	[data-display='table-head'] [data-display='table-cell'] {
+const DrivesTable = styled(({ refFn, ...props }) => (
+	<div>
+		<Table<Drive> ref={refFn} {...props} />
+	</div>
+))`
+	[data-display='table-head']
+		> [data-display='table-row']
+		> [data-display='table-cell'] {
 		position: sticky;
 		top: 0;
 		background-color: ${(props) => props.theme.colors.quartenary.light};
+
+		input[type='checkbox'] + div {
+			display: ${({ multipleSelection }) =>
+				multipleSelection ? 'flex' : 'none'};
+		}
+
+		&:first-child {
+			padding-left: 15px;
+		}
+
+		&:nth-child(2) {
+			width: 38%;
+		}
+
+		&:nth-child(3) {
+			width: 15%;
+		}
+
+		&:nth-child(4) {
+			width: 15%;
+		}
+
+		&:nth-child(5) {
+			width: 32%;
+		}
 	}
 
-	[data-display='table-cell']:first-child {
-		padding-left: 15px;
-	}
+	[data-display='table-body'] > [data-display='table-row'] {
+		> [data-display='table-cell']:first-child {
+			padding-left: 15px;
+		}
 
-	[data-display='table-cell']:last-child {
-		width: 150px;
+		> [data-display='table-cell']:last-child {
+			padding-right: 0;
+		}
+
+		&[data-highlight='true'] {
+			&.system {
+				background-color: #fff5e6;
+			}
+
+			> [data-display='table-cell']:first-child {
+				box-shadow: none;
+			}
+		}
 	}
 
 	&& [data-display='table-row'] > [data-display='table-cell'] {
 		padding: 6px 8px;
 		color: #2a506f;
+	}
+
+	input[type='checkbox'] + div {
+		border-radius: ${({ multipleSelection }) =>
+			multipleSelection ? '4px' : '50%'};
 	}
 `;
 
@@ -109,6 +146,7 @@ function badgeShadeFromStatus(status: string) {
 		case compatibility.containsImage():
 			return 16;
 		case compatibility.system():
+		case compatibility.tooSmall():
 			return 5;
 		default:
 			return 14;
@@ -142,30 +180,48 @@ const InitProgress = styled(
 	}
 `;
 
-interface TargetSelectorModalProps extends Omit<ModalProps, 'done'> {
-	done: (targets: scanner.adapters.DrivelistDrive[]) => void;
+export interface DriveSelectorProps
+	extends Omit<ModalProps, 'done' | 'cancel'> {
+	multipleSelection?: boolean;
+	showWarnings?: boolean;
+	cancel: () => void;
+	done: (drives: DrivelistDrive[]) => void;
+	titleLabel: string;
+	emptyListLabel: string;
+	selectedList?: DrivelistDrive[];
+	updateSelectedList?: () => DrivelistDrive[];
 }
 
-interface TargetSelectorModalState {
-	drives: Target[];
+interface DriveSelectorState {
+	drives: Drive[];
 	image: Image;
 	missingDriversModal: { drive?: DriverlessDrive };
-	selectedList: scanner.adapters.DrivelistDrive[];
+	selectedList: DrivelistDrive[];
 	showSystemDrives: boolean;
 }
 
-export class TargetSelectorModal extends React.Component<
-	TargetSelectorModalProps,
-	TargetSelectorModalState
+function isSystemDrive(drive: Drive) {
+	return isDrivelistDrive(drive) && drive.isSystem;
+}
+
+export class DriveSelector extends React.Component<
+	DriveSelectorProps,
+	DriveSelectorState
 > {
 	private unsubscribe: (() => void) | undefined;
-	tableColumns: Array<TableColumn<Target>>;
+	multipleSelection: boolean = true;
+	tableColumns: Array<TableColumn<Drive>>;
 
-	constructor(props: TargetSelectorModalProps) {
+	constructor(props: DriveSelectorProps) {
 		super(props);
 
 		const defaultMissingDriversModalState: { drive?: DriverlessDrive } = {};
-		const selectedList = getSelectedDrives();
+		const selectedList = this.props.selectedList || [];
+		const multipleSelection = this.props.multipleSelection;
+		this.multipleSelection =
+			multipleSelection !== undefined
+				? !!multipleSelection
+				: this.multipleSelection;
 
 		this.state = {
 			drives: getDrives(),
@@ -179,22 +235,31 @@ export class TargetSelectorModal extends React.Component<
 			{
 				field: 'description',
 				label: 'Name',
-				render: (description: string, drive: Target) => {
-					return isDrivelistDrive(drive) && drive.isSystem ? (
-						<Flex alignItems="center">
-							<ExclamationTriangleSvg height="1em" fill="#fca321" />
-							<Txt ml={8}>{description}</Txt>
-						</Flex>
-					) : (
-						<Txt>{description}</Txt>
-					);
+				render: (description: string, drive: Drive) => {
+					if (isDrivelistDrive(drive)) {
+						const isLargeDrive = isDriveSizeLarge(drive);
+						const hasWarnings =
+							this.props.showWarnings && (isLargeDrive || drive.isSystem);
+						return (
+							<Flex alignItems="center">
+								{hasWarnings && (
+									<ExclamationTriangleSvg
+										height="1em"
+										fill={drive.isSystem ? '#fca321' : '#8f9297'}
+									/>
+								)}
+								<Txt ml={(hasWarnings && 8) || 0}>{description}</Txt>
+							</Flex>
+						);
+					}
+					return <Txt>{description}</Txt>;
 				},
 			},
 			{
 				field: 'description',
 				key: 'size',
 				label: 'Size',
-				render: (_description: string, drive: Target) => {
+				render: (_description: string, drive: Drive) => {
 					if (isDrivelistDrive(drive) && drive.size !== null) {
 						return bytesToClosestUnit(drive.size);
 					}
@@ -204,7 +269,7 @@ export class TargetSelectorModal extends React.Component<
 				field: 'description',
 				key: 'link',
 				label: 'Location',
-				render: (_description: string, drive: Target) => {
+				render: (_description: string, drive: Drive) => {
 					return (
 						<Txt>
 							{drive.displayName}
@@ -227,21 +292,19 @@ export class TargetSelectorModal extends React.Component<
 				field: 'description',
 				key: 'extra',
 				// Space as empty string would use the field name as label
-				label: ' ',
-				render: (_description: string, drive: Target) => {
+				label: <Txt></Txt>,
+				render: (_description: string, drive: Drive) => {
 					if (isUsbbootDrive(drive)) {
 						return this.renderProgress(drive.progress);
 					} else if (isDrivelistDrive(drive)) {
-						return this.renderStatuses(
-							getDriveImageCompatibilityStatuses(drive, this.state.image),
-						);
+						return this.renderStatuses(drive);
 					}
 				},
 			},
 		];
 	}
 
-	private driveShouldBeDisabled(drive: Target, image: any) {
+	private driveShouldBeDisabled(drive: Drive, image: any) {
 		return (
 			isUsbbootDrive(drive) ||
 			isDriverlessDrive(drive) ||
@@ -249,8 +312,8 @@ export class TargetSelectorModal extends React.Component<
 		);
 	}
 
-	private getDisplayedTargets(targets: Target[]): Target[] {
-		return targets.filter((drive) => {
+	private getDisplayedDrives(drives: Drive[]): Drive[] {
+		return drives.filter((drive) => {
 			return (
 				isUsbbootDrive(drive) ||
 				isDriverlessDrive(drive) ||
@@ -261,7 +324,7 @@ export class TargetSelectorModal extends React.Component<
 		});
 	}
 
-	private getDisabledTargets(drives: Target[], image: any): string[] {
+	private getDisabledDrives(drives: Drive[], image: any): string[] {
 		return drives
 			.filter((drive) => this.driveShouldBeDisabled(drive, image))
 			.map((drive) => drive.displayName);
@@ -276,14 +339,45 @@ export class TargetSelectorModal extends React.Component<
 		);
 	}
 
-	private renderStatuses(statuses: TargetStatus[]) {
+	private warningFromStatus(
+		status: string,
+		drive: { device: string; size: number },
+	) {
+		switch (status) {
+			case compatibility.containsImage():
+				return warning.sourceDrive();
+			case compatibility.largeDrive():
+				return warning.largeDriveSize();
+			case compatibility.system():
+				return warning.systemDrive();
+			case compatibility.tooSmall():
+				const recommendedDriveSize =
+					this.state.image.recommendedDriveSize || this.state.image.size || 0;
+				return warning.unrecommendedDriveSize({ recommendedDriveSize }, drive);
+		}
+	}
+
+	private renderStatuses(drive: DrivelistDrive) {
+		const statuses: DriveStatus[] = getDriveImageCompatibilityStatuses(
+			drive,
+			this.state.image,
+		).slice(0, 2);
 		return (
 			// the column render fn expects a single Element
 			<>
 				{statuses.map((status) => {
 					const badgeShade = badgeShadeFromStatus(status.message);
+					const warningMessage = this.warningFromStatus(status.message, {
+						device: drive.device,
+						size: drive.size || 0,
+					});
 					return (
-						<Badge key={status.message} shade={badgeShade}>
+						<Badge
+							key={status.message}
+							shade={badgeShade}
+							mr="8px"
+							tooltip={this.props.showWarnings ? warningMessage : ''}
+						>
 							{status.message}
 						</Badge>
 					);
@@ -308,7 +402,9 @@ export class TargetSelectorModal extends React.Component<
 			this.setState({
 				drives,
 				image,
-				selectedList: getSelectedDrives(),
+				selectedList:
+					(this.props.updateSelectedList && this.props.updateSelectedList()) ||
+					[],
 			});
 		});
 	}
@@ -321,24 +417,21 @@ export class TargetSelectorModal extends React.Component<
 		const { cancel, done, ...props } = this.props;
 		const { selectedList, drives, image, missingDriversModal } = this.state;
 
-		const displayedTargets = this.getDisplayedTargets(drives);
-		const disabledTargets = this.getDisabledTargets(drives, image);
-		const numberOfSystemDrives = drives.filter(
-			(drive) => isDrivelistDrive(drive) && drive.isSystem,
-		).length;
-		const numberOfDisplayedSystemDrives = displayedTargets.filter(
-			(drive) => isDrivelistDrive(drive) && drive.isSystem,
-		).length;
+		const displayedDrives = this.getDisplayedDrives(drives);
+		const disabledDrives = this.getDisabledDrives(drives, image);
+		const numberOfSystemDrives = drives.filter(isSystemDrive).length;
+		const numberOfDisplayedSystemDrives = displayedDrives.filter(isSystemDrive)
+			.length;
 		const numberOfHiddenSystemDrives =
 			numberOfSystemDrives - numberOfDisplayedSystemDrives;
-		const hasStatus = hasListDriveImageCompatibilityStatus(selectedList, image);
+		const hasSystemDrives = selectedList.filter(isSystemDrive).length;
 
 		return (
 			<Modal
 				titleElement={
 					<Flex alignItems="baseline" mb={18}>
 						<Txt fontSize={24} align="left">
-							Select target
+							{this.props.titleLabel}
 						</Txt>
 						<Txt
 							fontSize={11}
@@ -355,12 +448,19 @@ export class TargetSelectorModal extends React.Component<
 				done={() => done(selectedList)}
 				action={`Select (${selectedList.length})`}
 				primaryButtonProps={{
-					primary: !hasStatus,
-					warning: hasStatus,
+					primary: !hasSystemDrives,
+					warning: hasSystemDrives,
 					disabled: !hasAvailableDrives(),
 				}}
 				{...props}
 			>
+				{this.props.showWarnings &&
+					selectedList.filter(isSystemDrive).length > 0 && (
+						<Alert style={{ width: '67%' }}>
+							Selecting your system drive is dangerous and will erase your
+							drive!
+						</Alert>
+					)}
 				<Flex width="100%" height="90%">
 					{!hasAvailableDrives() ? (
 						<Flex
@@ -369,45 +469,62 @@ export class TargetSelectorModal extends React.Component<
 							alignItems="center"
 							width="100%"
 						>
-							<TargetSVGIcon width="40px" height="90px" />
-							<b>Plug a target drive</b>
+							<DriveSVGIcon width="40px" height="90px" />
+							<b>{this.props.emptyListLabel}</b>
 						</Flex>
 					) : (
 						<ScrollableFlex flexDirection="column" width="100%">
-							<TargetsTable
-								refFn={(t: Table<Target>) => {
+							<DrivesTable
+								refFn={(t: Table<Drive>) => {
 									if (t !== null) {
 										t.setRowSelection(selectedList);
 									}
 								}}
+								multipleSelection={this.multipleSelection}
 								columns={this.tableColumns}
-								data={displayedTargets}
-								disabledRows={disabledTargets}
+								data={displayedDrives}
+								disabledRows={disabledDrives}
+								getRowClass={(row: Drive) =>
+									isDrivelistDrive(row) && row.isSystem ? ['system'] : []
+								}
 								rowKey="displayName"
-								onCheck={(rows: Target[]) => {
+								onCheck={(rows: Drive[]) => {
+									const newSelection = rows.filter(isDrivelistDrive);
+									if (this.multipleSelection) {
+										this.setState({
+											selectedList: newSelection,
+										});
+										return;
+									}
 									this.setState({
-										selectedList: rows.filter(isDrivelistDrive),
+										selectedList: newSelection.slice(newSelection.length - 1),
 									});
 								}}
-								onRowClick={(row: Target) => {
+								onRowClick={(row: Drive) => {
 									if (
 										!isDrivelistDrive(row) ||
 										this.driveShouldBeDisabled(row, image)
 									) {
 										return;
 									}
-									const newList = [...selectedList];
-									const selectedIndex = selectedList.findIndex(
-										(target) => target.device === row.device,
-									);
-									if (selectedIndex === -1) {
-										newList.push(row);
-									} else {
-										// Deselect if selected
-										newList.splice(selectedIndex, 1);
+									if (this.multipleSelection) {
+										const newList = [...selectedList];
+										const selectedIndex = selectedList.findIndex(
+											(drive) => drive.device === row.device,
+										);
+										if (selectedIndex === -1) {
+											newList.push(row);
+										} else {
+											// Deselect if selected
+											newList.splice(selectedIndex, 1);
+										}
+										this.setState({
+											selectedList: newList,
+										});
+										return;
 									}
 									this.setState({
-										selectedList: newList,
+										selectedList: [row],
 									});
 								}}
 							/>
@@ -415,6 +532,7 @@ export class TargetSelectorModal extends React.Component<
 								<Link
 									mt={15}
 									mb={15}
+									fontSize="14px"
 									onClick={() => this.setState({ showSystemDrives: true })}
 								>
 									<Flex alignItems="center">

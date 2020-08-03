@@ -15,8 +15,7 @@
  */
 
 import { expect } from 'chai';
-import { Drive as DrivelistDrive } from 'drivelist';
-import * as _ from 'lodash';
+import { sourceDestination } from 'etcher-sdk';
 import * as path from 'path';
 
 import * as constraints from '../../lib/shared/drive-constraints';
@@ -29,7 +28,7 @@ describe('Shared: DriveConstraints', function () {
 				device: '/dev/disk2',
 				size: 999999999,
 				isReadOnly: true,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.true;
 		});
@@ -39,7 +38,7 @@ describe('Shared: DriveConstraints', function () {
 				device: '/dev/disk2',
 				size: 999999999,
 				isReadOnly: false,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -48,7 +47,7 @@ describe('Shared: DriveConstraints', function () {
 			const result = constraints.isDriveLocked({
 				device: '/dev/disk2',
 				size: 999999999,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -67,7 +66,7 @@ describe('Shared: DriveConstraints', function () {
 				size: 999999999,
 				isReadOnly: true,
 				isSystem: true,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.true;
 		});
@@ -77,7 +76,7 @@ describe('Shared: DriveConstraints', function () {
 				device: '/dev/disk2',
 				size: 999999999,
 				isReadOnly: true,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -88,7 +87,7 @@ describe('Shared: DriveConstraints', function () {
 				size: 999999999,
 				isReadOnly: true,
 				isSystem: false,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -108,7 +107,7 @@ describe('Shared: DriveConstraints', function () {
 					size: 999999999,
 					isReadOnly: true,
 					isSystem: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				// @ts-ignore
 				undefined,
 			);
@@ -123,9 +122,12 @@ describe('Shared: DriveConstraints', function () {
 					size: 999999999,
 					isReadOnly: true,
 					isSystem: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				{
 					path: '/Volumes/Untitled/image.img',
+					hasMBR: false,
+					partitions: [],
+					SourceType: sourceDestination.File,
 				},
 			);
 
@@ -157,9 +159,12 @@ describe('Shared: DriveConstraints', function () {
 								path: 'F:',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: 'E:\\image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -179,9 +184,12 @@ describe('Shared: DriveConstraints', function () {
 								path: 'F:',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: 'E:\\foo\\bar\\image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -201,9 +209,12 @@ describe('Shared: DriveConstraints', function () {
 								path: 'F:',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: 'G:\\image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -219,9 +230,12 @@ describe('Shared: DriveConstraints', function () {
 								path: 'E:\\fo',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: 'E:\\foo/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -249,9 +263,12 @@ describe('Shared: DriveConstraints', function () {
 								path: '/',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: '/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -269,9 +286,12 @@ describe('Shared: DriveConstraints', function () {
 								path: '/Volumes/B',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: '/Volumes/A/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -289,9 +309,12 @@ describe('Shared: DriveConstraints', function () {
 								path: '/Volumes/B',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: '/Volumes/A/foo/bar/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -309,9 +332,12 @@ describe('Shared: DriveConstraints', function () {
 								path: '/Volumes/B',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: '/Volumes/C/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -326,9 +352,12 @@ describe('Shared: DriveConstraints', function () {
 								path: '/Volumes/fo',
 							},
 						],
-					} as DrivelistDrive,
+					} as constraints.DrivelistDrive,
 					{
 						path: '/Volumes/foo/image.img',
+						hasMBR: false,
+						partitions: [],
+						SourceType: sourceDestination.File,
 					},
 				);
 
@@ -531,7 +560,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 1000000000,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				// @ts-ignore
 				undefined,
 			);
@@ -553,7 +582,7 @@ describe('Shared: DriveConstraints', function () {
 				size: 1000000000,
 				isReadOnly: false,
 				disabled: true,
-			} as unknown) as DrivelistDrive);
+			} as unknown) as constraints.DrivelistDrive);
 
 			expect(result).to.be.true;
 		});
@@ -564,7 +593,7 @@ describe('Shared: DriveConstraints', function () {
 				size: 1000000000,
 				isReadOnly: false,
 				disabled: false,
-			} as unknown) as DrivelistDrive);
+			} as unknown) as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -574,7 +603,7 @@ describe('Shared: DriveConstraints', function () {
 				device: '/dev/disk1',
 				size: 1000000000,
 				isReadOnly: false,
-			} as DrivelistDrive);
+			} as constraints.DrivelistDrive);
 
 			expect(result).to.be.false;
 		});
@@ -587,7 +616,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 2000000001,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				{
 					path: path.join(__dirname, 'rpi.img'),
 					size: 1000000000,
@@ -605,7 +634,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 2000000000,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				{
 					path: path.join(__dirname, 'rpi.img'),
 					size: 1000000000,
@@ -623,7 +652,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 2000000000,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				{
 					path: path.join(__dirname, 'rpi.img'),
 					size: 1000000000,
@@ -641,7 +670,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 2000000000,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				{
 					path: path.join(__dirname, 'rpi.img'),
 					size: 1000000000,
@@ -669,7 +698,7 @@ describe('Shared: DriveConstraints', function () {
 					device: '/dev/disk1',
 					size: 2000000000,
 					isReadOnly: false,
-				} as DrivelistDrive,
+				} as constraints.DrivelistDrive,
 				// @ts-ignore
 				undefined,
 			);
@@ -966,22 +995,34 @@ describe('Shared: DriveConstraints', function () {
 			};
 		});
 
+		const compareTuplesMessages = (
+			tuple1: { message: string },
+			tuple2: { message: string },
+		) => {
+			if (tuple1.message.toLowerCase() === tuple2.message.toLowerCase()) {
+				return 0;
+			}
+			return tuple1.message.toLowerCase() > tuple2.message.toLowerCase()
+				? 1
+				: -1;
+		};
+
 		const expectStatusTypesAndMessagesToBe = (
 			resultList: Array<{ message: string }>,
 			expectedTuples: Array<['WARNING' | 'ERROR', string]>,
+			params?: number,
 		) => {
 			// Sort so that order doesn't matter
-			const expectedTuplesSorted = _.sortBy(
-				_.map(expectedTuples, (tuple) => {
+			const expectedTuplesSorted = expectedTuples
+				.map((tuple) => {
 					return {
 						type: constraints.COMPATIBILITY_STATUS_TYPES[tuple[0]],
 						// @ts-ignore
-						message: messages.compatibility[tuple[1]](),
+						message: messages.compatibility[tuple[1]](params),
 					};
-				}),
-				['message'],
-			);
-			const resultTuplesSorted = _.sortBy(resultList, ['message']);
+				})
+				.sort(compareTuplesMessages);
+			const resultTuplesSorted = resultList.sort(compareTuplesMessages);
 
 			expect(resultTuplesSorted).to.deep.equal(expectedTuplesSorted);
 		};
@@ -1051,7 +1092,7 @@ describe('Shared: DriveConstraints', function () {
 				);
 				const expected = [
 					{
-						message: messages.compatibility.tooSmall('1 B'),
+						message: messages.compatibility.tooSmall(),
 						type: constraints.COMPATIBILITY_STATUS_TYPES.ERROR,
 					},
 				];
@@ -1117,11 +1158,14 @@ describe('Shared: DriveConstraints', function () {
 					this.drive,
 					this.image,
 				);
-				// @ts-ignore
 				const expectedTuples = [['WARNING', 'largeDrive']];
 
-				// @ts-ignore
-				expectStatusTypesAndMessagesToBe(result, expectedTuples);
+				expectStatusTypesAndMessagesToBe(
+					result,
+					// @ts-ignore
+					expectedTuples,
+					this.drive.size,
+				);
 			});
 		});
 
@@ -1169,7 +1213,7 @@ describe('Shared: DriveConstraints', function () {
 				);
 				const expected = [
 					{
-						message: messages.compatibility.tooSmall('1 B'),
+						message: messages.compatibility.tooSmall(),
 						type: constraints.COMPATIBILITY_STATUS_TYPES.ERROR,
 					},
 				];
@@ -1220,7 +1264,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [{ path: __dirname }],
 				isSystem: false,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[1],
 				description: 'My Other Drive',
@@ -1229,7 +1273,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: false,
 				isReadOnly: true,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[2],
 				description: 'My Drive',
@@ -1238,7 +1282,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: false,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[3],
 				description: 'My Drive',
@@ -1247,7 +1291,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: true,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[4],
 				description: 'My Drive',
@@ -1256,7 +1300,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: false,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[5],
 				description: 'My Drive',
@@ -1265,7 +1309,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: false,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 			({
 				device: drivePaths[6],
 				description: 'My Drive',
@@ -1274,7 +1318,7 @@ describe('Shared: DriveConstraints', function () {
 				mountpoints: [],
 				isSystem: false,
 				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
+			} as unknown) as constraints.DrivelistDrive,
 		];
 
 		const image = {
@@ -1331,7 +1375,7 @@ describe('Shared: DriveConstraints', function () {
 					),
 				).to.deep.equal([
 					{
-						message: 'Insufficient space, additional 1 B required',
+						message: 'Too small',
 						type: 2,
 					},
 				]);
@@ -1359,7 +1403,7 @@ describe('Shared: DriveConstraints', function () {
 					),
 				).to.deep.equal([
 					{
-						message: 'Large drive',
+						message: 'Large Drive',
 						type: 1,
 					},
 				]);
@@ -1394,7 +1438,7 @@ describe('Shared: DriveConstraints', function () {
 						type: 2,
 					},
 					{
-						message: 'Insufficient space, additional 1 B required',
+						message: 'Too small',
 						type: 2,
 					},
 					{
@@ -1402,7 +1446,7 @@ describe('Shared: DriveConstraints', function () {
 						type: 1,
 					},
 					{
-						message: 'Large drive',
+						message: 'Large Drive',
 						type: 1,
 					},
 					{
@@ -1410,152 +1454,6 @@ describe('Shared: DriveConstraints', function () {
 						type: 1,
 					},
 				]);
-			});
-		});
-	});
-
-	describe('.hasListDriveImageCompatibilityStatus()', function () {
-		const drivePaths =
-			process.platform === 'win32'
-				? ['E:\\', 'F:\\', 'G:\\', 'H:\\', 'J:\\', 'K:\\']
-				: [
-						'/dev/disk1',
-						'/dev/disk2',
-						'/dev/disk3',
-						'/dev/disk4',
-						'/dev/disk5',
-						'/dev/disk6',
-				  ];
-		const drives = [
-			({
-				device: drivePaths[0],
-				description: 'My Drive',
-				size: 123456789,
-				displayName: drivePaths[0],
-				mountpoints: [{ path: __dirname }],
-				isSystem: false,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[1],
-				description: 'My Other Drive',
-				size: 123456789,
-				displayName: drivePaths[1],
-				mountpoints: [],
-				isSystem: false,
-				isReadOnly: true,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[2],
-				description: 'My Drive',
-				size: 1234567,
-				displayName: drivePaths[2],
-				mountpoints: [],
-				isSystem: false,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[3],
-				description: 'My Drive',
-				size: 123456789,
-				displayName: drivePaths[3],
-				mountpoints: [],
-				isSystem: true,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[4],
-				description: 'My Drive',
-				size: 64000000001,
-				displayName: drivePaths[4],
-				mountpoints: [],
-				isSystem: false,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[5],
-				description: 'My Drive',
-				size: 12345678,
-				displayName: drivePaths[5],
-				mountpoints: [],
-				isSystem: false,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-			({
-				device: drivePaths[6],
-				description: 'My Drive',
-				size: 123456789,
-				displayName: drivePaths[6],
-				mountpoints: [],
-				isSystem: false,
-				isReadOnly: false,
-			} as unknown) as DrivelistDrive,
-		];
-
-		const image = {
-			path: path.join(__dirname, 'rpi.img'),
-			// @ts-ignore
-			size: drives[2].size + 1,
-			isSizeEstimated: false,
-			// @ts-ignore
-			recommendedDriveSize: drives[5].size + 1,
-		};
-
-		describe('given no drives', function () {
-			it('should return false', function () {
-				expect(constraints.hasListDriveImageCompatibilityStatus([], image)).to
-					.be.false;
-			});
-		});
-
-		describe('given one drive', function () {
-			it('should return true given a drive that contains the image', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[0]], image),
-				).to.be.true;
-			});
-
-			it('should return true given a drive that is locked', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[1]], image),
-				).to.be.true;
-			});
-
-			it('should return true given a drive that is too small for the image', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[2]], image),
-				).to.be.true;
-			});
-
-			it('should return true given a drive that is a system drive', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[3]], image),
-				).to.be.true;
-			});
-
-			it('should return true given a drive that is large', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[4]], image),
-				).to.be.true;
-			});
-
-			it('should return true given a drive that is not recommended', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[5]], image),
-				).to.be.true;
-			});
-
-			it('should return false given a drive with no warnings or errors', function () {
-				expect(
-					constraints.hasListDriveImageCompatibilityStatus([drives[6]], image),
-				).to.be.false;
-			});
-		});
-
-		describe('given many drives', function () {
-			it('should return true given some drives with errors or warnings', function () {
-				expect(constraints.hasListDriveImageCompatibilityStatus(drives, image))
-					.to.be.true;
 			});
 		});
 	});
