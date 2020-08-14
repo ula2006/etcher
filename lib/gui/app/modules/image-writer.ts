@@ -152,6 +152,8 @@ export async function performWrite(
 		validateWriteOnSuccess,
 		autoBlockmapping,
 		decompressFirst,
+		saveUrlImage,
+		saveUrlImageTo,
 	} = await settings.getAll();
 	return await new Promise((resolve, reject) => {
 		ipc.server.on('error', (error) => {
@@ -205,6 +207,8 @@ export async function performWrite(
 				autoBlockmapping,
 				unmountOnSuccess,
 				decompressFirst,
+				saveUrlImage,
+				saveUrlImageTo,
 			});
 		});
 

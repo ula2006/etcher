@@ -29,8 +29,6 @@ import { Flex } from 'rendition/dist_esm5/components/Flex';
 import { ButtonProps } from 'rendition/dist_esm5/components/Button';
 import SmallModal from 'rendition/dist_esm5/components/Modal';
 import Txt from 'rendition/dist_esm5/components/Txt';
-import BaseCard from 'rendition/dist_esm5/components/Card';
-import Input from 'rendition/dist_esm5/components/Input';
 import styled from 'styled-components';
 
 import * as errors from '../../../../shared/errors';
@@ -46,60 +44,19 @@ import { replaceWindowsNetworkDriveLetter } from '../../os/windows-network-drive
 import {
 	ChangeButton,
 	DetailsText,
-	Modal,
 	StepButton,
 	StepNameButton,
-	ScrollableFlex,
 } from '../../styled-components';
 import { colors } from '../../theme';
 import { middleEllipsis } from '../../utils/middle-ellipsis';
+import URLSelector from '../url-selector/url-selector';
 import { SVGIcon } from '../svg-icon/svg-icon';
 
 import ImageSvg from '../../../assets/image.svg';
 import { DriveSelector } from '../drive-selector/drive-selector';
 
-const recentUrlImagesKey = 'recentUrlImages';
-
-function normalizeRecentUrlImages(urls: any[]): URL[] {
-	if (!Array.isArray(urls)) {
-		urls = [];
-	}
-	urls = urls
-		.map((url) => {
-			try {
-				return new URL(url);
-			} catch (error) {
-				// Invalid URL, skip
-			}
-		})
-		.filter((url) => url !== undefined);
-	urls = _.uniqBy(urls, (url) => url.href);
-	return urls.slice(urls.length - 5);
-}
-
-function getRecentUrlImages(): URL[] {
-	let urls = [];
-	try {
-		urls = JSON.parse(localStorage.getItem(recentUrlImagesKey) || '[]');
-	} catch {
-		// noop
-	}
-	return normalizeRecentUrlImages(urls);
-}
-
-function setRecentUrlImages(urls: URL[]) {
-	const normalized = normalizeRecentUrlImages(urls.map((url: URL) => url.href));
-	localStorage.setItem(recentUrlImagesKey, JSON.stringify(normalized));
-}
-
 const isURL = (imagePath: string) =>
 	imagePath.startsWith('https://') || imagePath.startsWith('http://');
-
-const Card = styled(BaseCard)`
-	hr {
-		margin: 5px 0;
-	}
-`;
 
 // TODO move these styles to rendition
 const ModalText = styled.p`
@@ -123,82 +80,6 @@ function getState() {
 function isString(value: any): value is string {
 	return typeof value === 'string';
 }
-
-const URLSelector = ({
-	done,
-	cancel,
-}: {
-	done: (imageURL: string) => void;
-	cancel: () => void;
-}) => {
-	const [imageURL, setImageURL] = React.useState('');
-	const [recentImages, setRecentImages] = React.useState<URL[]>([]);
-	const [loading, setLoading] = React.useState(false);
-	React.useEffect(() => {
-		const fetchRecentUrlImages = async () => {
-			const recentUrlImages: URL[] = await getRecentUrlImages();
-			setRecentImages(recentUrlImages);
-		};
-		fetchRecentUrlImages();
-	}, []);
-	return (
-		<Modal
-			cancel={cancel}
-			primaryButtonProps={{
-				className: loading || !imageURL ? 'disabled' : '',
-			}}
-			done={async () => {
-				setLoading(true);
-				const urlStrings = recentImages.map((url: URL) => url.href);
-				const normalizedRecentUrls = normalizeRecentUrlImages([
-					...urlStrings,
-					imageURL,
-				]);
-				setRecentUrlImages(normalizedRecentUrls);
-				await done(imageURL);
-			}}
-		>
-			<Flex style={{ width: '100%' }} flexDirection="column">
-				<Txt mb="10px" fontSize="24px">
-					Use Image URL
-				</Txt>
-				<Input
-					value={imageURL}
-					placeholder="Enter a valid URL"
-					type="text"
-					onChange={(evt: React.ChangeEvent<HTMLInputElement>) =>
-						setImageURL(evt.target.value)
-					}
-				/>
-			</Flex>
-			{recentImages.length > 0 && (
-				<Flex flexDirection="column" height="78.6%">
-					<Txt fontSize={18}>Recent</Txt>
-					<ScrollableFlex flexDirection="column">
-						<Card
-							p="10px 15px"
-							rows={recentImages
-								.map((recent) => (
-									<Txt
-										key={recent.href}
-										onClick={() => {
-											setImageURL(recent.href);
-										}}
-										style={{
-											overflowWrap: 'break-word',
-										}}
-									>
-										{recent.pathname.split('/').pop()} - {recent.href}
-									</Txt>
-								))
-								.reverse()}
-						/>
-					</ScrollableFlex>
-				</Flex>
-			)}
-		</Modal>
-	);
-};
 
 interface Flow {
 	icon?: JSX.Element;
