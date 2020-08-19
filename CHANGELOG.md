@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+# v1.5.104
+## (2020-08-19)
+
+* Rework system & large drives handling logic [Lorenzo Alberto Maria Ambrosi]
+* Reword macOS Catalina askpass message [Lorenzo Alberto Maria Ambrosi]
+* Add clone-drive workflow [Lorenzo Alberto Maria Ambrosi]
+* Resize modal to show content appropriately [Lorenzo Alberto Maria Ambrosi]
+
 # v1.5.103
 ## (2020-08-18)
 
