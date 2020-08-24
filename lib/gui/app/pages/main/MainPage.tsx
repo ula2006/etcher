@@ -163,36 +163,26 @@ export class MainPage extends React.Component<
 		return (
 			<>
 				<Flex
-					id="app-header"
-					justifyContent="center"
-					style={{
-						width: '100%',
-						height: '50px',
-						padding: '13px 14px',
-						textAlign: 'center',
-						position: 'relative',
-						zIndex: 1,
-					}}
+					justifyContent="space-between"
+					alignItems="center"
+					paddingTop="14px"
 				>
-					<EtcherSvg
-						width="123px"
-						height="22px"
-						style={{
-							cursor: 'pointer',
-						}}
-						onClick={() =>
-							openExternal('https://www.balena.io/etcher?ref=etcher_footer')
-						}
-						tabIndex={100}
-					/>
+					<Flex width="100%" />
+					<Flex width="100%" alignItems="center" justifyContent="center">
+						<EtcherSvg
+							width="123px"
+							height="22px"
+							style={{
+								cursor: 'pointer',
+							}}
+							onClick={() =>
+								openExternal('https://www.balena.io/etcher?ref=etcher_footer')
+							}
+							tabIndex={100}
+						/>
+					</Flex>
 
-					<Flex
-						style={{
-							float: 'right',
-							position: 'absolute',
-							right: 0,
-						}}
-					>
+					<Flex width="100%" alignItems="center" justifyContent="flex-end">
 						<Icon
 							icon={<CogSvg height="1em" fill="currentColor" />}
 							plain
